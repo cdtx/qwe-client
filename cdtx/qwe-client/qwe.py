@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-import re
+import os, re
 import ast    #  abstract syntax trees
 import json
 import argparse
@@ -34,9 +34,23 @@ def get_projects_list():
     projects_list = [k for k in projects_list['content'].keys() if projects_list['content'][k]['type']=='folder']
     return projects_list
 
+def new_folder(path):
+    ret = requests.post(BASE_URL+'/api/new-folder', data={'path':path})
+    import pdb; pdb.set_trace()
+    if not ret.ok:
+        raise Exception(ret.reason)
+
 def call_project(args):
     if args.action == 'list':
         print('\n'.join(get_projects_list()))
+    if args.action == 'new':
+        # Ensure the projects doesn't exist already
+        projectName = args.params[0]
+        if projectName in get_projects_list():
+            raise Exception('Project %s already exists' % projectName)
+        # Create the folder
+        new_folder(os.path.join('projects', projectName))
+
 
 def call_script(args):
     pass
@@ -45,10 +59,12 @@ def call_script(args):
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(description='''QPython Web Editor command line client
     ''')
-    subparsers = arg_parser.add_subparsers()
+    subparsers = arg_parser.add_subparsers(dest='cmd')
+    subparsers.required = True
 
     parser_project = subparsers.add_parser('project')
-    parser_project.add_argument('action', choices=['new', 'list'])
+    parser_project.add_argument('action', choices=['new', 'list', 'run'])
+    parser_project.add_argument('params', nargs='*')
     parser_project.set_defaults(func=call_project)
 
     parser_script = subparsers.add_parser('script')
@@ -60,5 +76,7 @@ if __name__ == '__main__':
     # parser.add_argument('--project')
 
     args = arg_parser.parse_args()
-    args.func(args)
-
+    try:
+        args.func(args)
+    except Exception as e:
+        print(e)

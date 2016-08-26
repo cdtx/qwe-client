@@ -48,6 +48,11 @@ def copy_file(path, dest):
     else:
         ret = requests.post(BASE_URL+'/api/save', data={'path':dest, 'content':open(path, 'r').read()})
 
+def run_file(path):
+    ret = requests.post(BASE_URL+'/api/run', data={'path':path})
+    print(ret)
+
+
 def call_project(args):
     if args.action == 'list':
         print('\n'.join(get_projects_list()))
@@ -76,6 +81,16 @@ def call_project(args):
             # Create subfolder
             for f in fSub:
                 new_folder(os.path.join('projects', proj, f))
+
+    if args.action == 'run':
+        proj = args.params[0]
+        # Ensure project exists
+        if not proj in get_projects_list():
+            raise Exception('Project %s does not exist' % proj)
+
+        # Execute main.py inside the project
+        run_file(os.path.join('projects', proj, 'main.py'))
+
 
 def call_script(args):
     pass

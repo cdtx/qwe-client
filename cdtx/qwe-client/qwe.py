@@ -35,10 +35,18 @@ def get_projects_list():
     return projects_list
 
 def new_folder(path):
+    print('Create folder %s' % path)
     ret = requests.post(BASE_URL+'/api/new-folder', data={'path':path})
-    import pdb; pdb.set_trace()
     if not ret.ok:
         raise Exception(ret.reason)
+
+def copy_file(path, dest):
+    print('Copying %s to %s' % (path, dest))
+    ext = os.path.splitext(path)[1].lower()
+    if not ext in ['.py']:
+        print('Cannot transfert [%s] files, use ftp for the moment' % ext)
+    else:
+        ret = requests.post(BASE_URL+'/api/save', data={'path':dest, 'content':open(path, 'r').read()})
 
 def call_project(args):
     if args.action == 'list':
@@ -50,7 +58,24 @@ def call_project(args):
             raise Exception('Project %s already exists' % projectName)
         # Create the folder
         new_folder(os.path.join('projects', projectName))
+    if args.action == 'deploy':
+        path = args.params[0]
+        proj = os.path.basename(os.path.normpath(path))
+        if not os.path.isdir(path):
+            raise Exception("Path must target a project's folder")
 
+        # Ensure project exists
+        if not proj in get_projects_list():
+            raise Exception('Project %s does not exist' % proj)
+        
+        print('Deploying project %s' % proj)
+        for (fName, fSub, files) in os.walk(path):
+            # Copy the files
+            for f in files:
+                copy_file(os.path.join(fName, f), os.path.join('projects', proj, os.path.relpath(fName, start=path), f))
+            # Create subfolder
+            for f in fSub:
+                new_folder(os.path.join('projects', proj, f))
 
 def call_script(args):
     pass
@@ -63,7 +88,7 @@ if __name__ == '__main__':
     subparsers.required = True
 
     parser_project = subparsers.add_parser('project')
-    parser_project.add_argument('action', choices=['new', 'list', 'run'])
+    parser_project.add_argument('action', choices=['new', 'deploy', 'list', 'run'])
     parser_project.add_argument('params', nargs='*')
     parser_project.set_defaults(func=call_project)
 
